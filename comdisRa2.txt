@@ -1,0 +1,543 @@
+NECS1203 (การจัดการบริการและระบบปฏิบัติการลินุกซ์ ระดับองค์กร)
+โจทย์ข้อที่ 01: การกำหนดค่าการเชื่อมต่อเครือข่าย (Network Configuration)
+ใช้คำสั่ง nmcli ในการกำหนดค่าการเชื่อมต่อเครือข่ายบนอุปกรณ์เครือข่ายหลัก ให้มีหมายเลข IP
+192.168.100.10/29, Gateway 192.168.100.9 และ Nameserver 1.1.1.1 และ 192.168.100.11/29,
+Gateway 192.168.100.9 และ Nameserver 8.8.8.8
+คำสั่ง / Solution CLI:
+nmcli con show
+# กำหนดค่า IP/GW/DNS VM แรก
+sudo nmcli con mod ens160 ipv4.addresses 192.168.100.10/29 ipv4.gateway 192.168.100.9
+ipv4.dns 1.1.1.1 ipv4.method manual
+# กำหนดค่า IP/GW/DNS VM ที่สอง
+sudo nmcli con mod ens160 ipv4.addresses 192.168.100.11/29 ipv4.gateway 192.168.100.9
+ipv4.dns 1.1.1.1 ipv4.method manual
+# บันทึกและเปิดใช้งานการเชื่อมต่อ
+nmcli con show ens160
+ตรวจสอบ
+VM1
+VM2
+โจทย์ข้อที่ 02: การตั้งค่า Hostname และ Alias
+ใช้คำสั่ง hostnamectl ตั้งค่า Hostname ของระบบเป็น necs1.exam.com และชื่อนามแฝง (Alias) เป็น
+necs1 และ necs2.exam.com และชื่อนามแฝง (Alias) เป็น necs2 ตรวจสอบให้แน่ใจว่า Hostname
+ใหม่แสดงผลอย่างถูกต้องใน Command Prompt
+คำสั่ง / Solution CLI:
+hostnamectl set-hostname necs1.exam.com
+sudo sh -c 'echo "192.168.100.10 necs1.exam.com necs1" >> /etc/hosts'
+sudo sh -c 'echo "192.168.100.11 necs2.exam.com necs2" >> /etc/hosts'
+ตรวจสอบ
+1. VM1
+2. VM2
+โจทย์ข้อที่ 03: การสร้างผู้ใช้พร้อมกำหนด UID, Comment และ Inactivity
+สร้างบัญชีผู้ใช้ชื่อ user70 โดยกำหนด UID เป็น 7000 และเพิ่มคำอธิบาย (Comment) ว่า “I am user70”
+ตั้งค่าระยะเวลาไม่ใช้งานสูงสุดที่ยอมรับได้ (Maximum allowable inactivity) สำหรับผู้ใช้นี้เป็น 30 วัน
+คำสั่ง / Solution CLI:
+sudo useradd -u 7000 -c "I am user70" -f 30 user70
+echo "user70:redhat" | sudo chpasswd
+ตรวจสอบ
+sudo chage -l user70
+โจทย์ข้อที่ 04: การสร้าง Non-interactive User
+สร้างบัญชีผู้ใช้ชื่อ user50 โดยกำหนดให้ใช้ Non-interactive shell
+คำสั่ง / Solution CLI:
+sudo useradd -s /sbin/nologin user50
+grep user50 /etc/passwd
+ตรวจสอบ
+โจทย์ข้อที่ 05: การ Mount ISO และตั้งค่า DNF Repository ถาวร
+เชื่อมต่อ (Attach) ไฟล์ ISO ของ RHEL 10 เข้ากับ VM และ Mount เข้ากับ /mnt/dvdrom แบบถาวร
+(Persistent) จากนั้นกำหนดสิทธิ์การเข้าถึง (Define access) ให้กับทั้งสอง Repository
+และทำการยืนยันความถูกต้อง
+คำสั่ง / Solution CLI:
+sudo mkdir -p /mnt/dvdrom
+echo "/dev/cdrom /mnt/dvdrom iso9660 defaults 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+sudo tee /etc/yum.repos.d/local.repo > /dev/null <<'EOF'
+[BaseOS]
+name=BaseOS Repository
+baseurl=file:///mnt/dvdrom/BaseOS
+enabled=1
+gpgcheck=0
+[AppStream]
+name=AppStream Repository
+baseurl=file:///mnt/dvdrom/AppStream
+enabled=1
+gpgcheck=0
+EOF
+ทดสอบ
+sudo dnf clean all
+sudo dnf repolist
+โจทย์ข้อที่ 06: การจัดการ LVM (Volume Group & Logical Volume)
+สร้าง Logical Volume ชื่อ lv1 ให้มีขนาดเท่ากับ 10 LEs ภายใน Volume Group ชื่อ vg1 (สร้าง vg1
+โดยกำหนดขนาด PE เป็น 8MB บนพาร์ทิชันของดิสก์ขนาด 400MB) จัดรูปแบบ Logical Volume
+ด้วยระบบไฟล์ชนิด XFS และ Mount ไปยัง /mnt/lvfs1 จากนั้นสร้างไฟล์ชื่อ lv1file1 ไว้ในจุด Mount
+ดังกล่าว ตั้งค่าให้ระบบไฟล์ Mount โดยอัตโนมัติทุกครั้งที่รีบูตระบบ
+คำสั่ง / Solution CLI:
+printf "n\np\n1\n\n+400M\nt\n8e\nw\n" | sudo fdisk /dev/nvme0n2
+sudo partprobe /dev/nvme0n2
+sudo pvcreate /dev/nvme0n2p1
+sudo vgcreate -s 8M vg1 /dev/nvme0n2p1
+sudo lvcreate -l 10 -n lv1 vg1
+sudo mkfs.xfs /dev/vg1/lv1 หรือ sudo mkfs.ext4 /dev/vg1/lv1
+sudo mkdir -p /mnt/lvfs1
+echo "/dev/vg1/lv1 /mnt/lvfs1 xfs defaults 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+sudo touch /mnt/lvfs1/lv1file1
+ตรวจสอบ
+1. เช็กสถานะ Volume Group และขนาด PE/LE
+sudo vgdisplay vg1
+2. เช็กสถานะ Logical Volume
+sudo lvdisplay /dev/vg1/lv1
+โจทย์ข้อที่ 07: การจัดการ Permissions และ Group Membership
+สร้างกลุ่มชื่อ group20 และเปลี่ยนการเป็นเจ้าของกลุ่ม (Group Membership) ของ /mnt/lvfs1 ให้เป็น
+group20 กำหนดสิทธิ์ Read/Write/Execute บน /mnt/lvfs1 ให้กับเจ้าของ (Owner), สมาชิกในกลุ่ม
+(Group) และบุคคลอื่น (Others)
+คำสั่ง / Solution CLI:
+sudo groupadd group20
+sudo chgrp group20 /mnt/lvfs1
+sudo chmod 2770 /mnt/lvfs1
+ตรวจสอบสิทธิ์การใช้งาน
+ls -ld /mnt/lvfs1
+โจทย์ข้อที่ 08: การขยายขนาด Logical Volume แบบ Online
+ขยายขนาดระบบไฟล์ใน Logical Volume lv1 เพิ่มขึ้นอีก 64MB โดยไม่ต้อง Unmount
+และไม่ให้ข้อมูลสูญหาย ตรวจสอบและยืนยันขนาดใหม่ของ Logical Volume และระบบไฟล์
+คำสั่ง / Solution CLI:
+sudo lvextend -L +64M -r /dev/vg1/lv1
+ตรวจสอบ
+sudo lvs /dev/vg1/lv1
+โจทย์ข้อที่ 09: การสร้าง Swap Partition ด้วย UUID
+สร้าง Swap Partition ขนาด 85MB บนดิสก์ขนาด 400MB โดยใช้ UUID ของ Swap
+และเปิดใช้งานทุกครั้งหลังจากรีบูตระบบ
+คำสั่ง / Solution CLI:
+printf "n\np\n2\n\n+85M\nt\n2\n82\nw\n" | sudo fdisk /dev/nvme0n2
+sudo partprobe /dev/nvme0n2
+sudo mkswap /dev/nvme0n2p2
+echo "UUID=$(sudo blkid -s UUID -o value /dev/nvme0n2p2) none swap defaults 0 0" | sudo
+tee -a /etc/fstab
+sudo swapon -a
+swapon –show
+ตรวจสอบ
+ตรวจสอบการเปิดใช้งาน Swap
+swapon --show
+# ตรวจสอบบรรทัด Swap ที่เพิ่มเข้าไปใน /etc/fstab
+grep swap /etc/fstab
+โจทย์ข้อที่ 10: การสร้าง Ext4 Partition พร้อม Label
+สร้าง Disk Partition ขนาด 100MB บนดิสก์ขนาด 400MB และจัดรูปแบบด้วยระบบไฟล์ชนิด Ext4 กำหนด
+Label ชื่อ stdlabel ให้กับระบบไฟล์ Mount ระบบไฟล์แบบถาวรไปยัง /mnt/stdfs1 โดยอ้างอิงจาก
+Label ดังกล่าว แล้วสร้างไฟล์ stdfile1 ไว้ในจุด Mount
+คำสั่ง / Solution CLI:
+printf "n\np\n3\n\n+100M\nw\n" | sudo fdisk /dev/nvme0n2
+sudo partprobe /dev/nvme0n2
+sudo mkfs.ext4 -L stdlabel /dev/nvme0n2p3
+sudo mkdir -p /mnt/stdfs1
+echo "LABEL=stdlabel /mnt/stdfs1 ext4 defaults 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+sudo touch /mnt/stdfs1/stdfile1
+ตรวจสอบ
+1. เช็ก Label ของ Partition
+sudo e2label /dev/nvme0n2p3
+2. เช็กจุด Mount และขนาดพื้นที่
+df -h /mnt/stdfs1
+3. เช็กไฟล์ทดสอบ
+ls -l /mnt/stdfs1
+โจทย์ข้อที่ 11: การบีบอัดไฟล์ด้วย tar และ gzip
+ใช้คำสั่ง tar ร่วมกับ gzip ในการบีบอัดและจัดเก็บไดเรกทอรี /etc ให้เป็นไฟล์ archive บันทึกไฟล์ไว้ใต้
+/var/tmp โดยใช้ชื่อไฟล์ตามที่คุณต้องการ
+คำสั่ง / Solution CLI:
+sudo tar -czvf /var/tmp/etc_backup.tar.gz /etc
+tar -tzf /var/tmp/etc_backup.tar.gz | head -n 10
+ตรวจสอบ
+ls -lh /var/tmp/etc_backup.tar.gz
+โจทย์ข้อที่ 12: การจัดการ SELinux File Context
+สร้างไดเรกทอรี /direct01 และกำหนด SELinux Contexts แบบเดียวกับ /root ให้กับไดเรกทอรีนี้
+คำสั่ง / Solution CLI:
+sudo mkdir -p /direct01
+sudo semanage fcontext -a -t admin_home_t "/direct01(/.*)?"
+sudo restorecon -Rv /direct01
+ตรวจสอบ
+ls -Zd /direct01
+โจทย์ข้อที่ 13: การตั้งค่า Cron Job / Systemd Timer
+ตั้งค่า Cron Job สำหรับ user70 เพื่อค้นหาไฟล์ชื่อ “core” ในไดเรกทอรี /var
+และคัดลอกไฟล์เหล่านั้นไปยังไดเรกทอรี /var/tmp/coredir1 โดยกำหนดให้งานนี้รันทุกวันจันทร์ เวลา
+01:20 น.
+คำสั่ง / Solution CLI:
+sudo mkdir -p /var/tmp/coredir1
+sudo chown user70:user70 /var/tmp/coredir1
+sudo crontab -e -u user70
+- เพิ่ม ( 20 01 * * 1 /usr/bin/find /var -name "core" -exec cp {} /var/tmp/coredir1/ \; )
+เข้าไป
+ตรวจสอบ
+# ตรวจสอบรายการ Cron Job ของ user70
+sudo crontab -u user70 -l
+# ตรวจสอบสิทธิ์ของไดเรกทอรี /var/tmp/coredir1
+ls -ld /var/tmp/coredir1โจทย์ข้อที่ 14: การค้นหาไฟล์ด้วย find (Modified Time)
+ค้นหาไฟล์ทั้งหมดทั่วทั้งโครงสร้างไดเรกทอรีที่มีการแก้ไข (Modified) ในช่วง 30 วันที่ผ่านมา
+และบันทึกรายชื่อไฟล์ลงในไฟล์ /var/tmp/modfiles.txt
+คำสั่ง / Solution CLI:
+sudo find / -mtime -30 -type f 2>/dev/null | sudo tee /var/tmp/modfiles.txt > /dev/null
+head -n 20 /var/tmp/modfiles.txt
+ตรวจสอบ
+wc -l /var/tmp/modfiles.txt
+โจทย์ข้อที่ 15: การตั้งค่า GRUB Bootloader Autoboot Timer
+แก้ไขโปรแกรม Bootloader และตั้งค่าเวลานับถอยหลังในการบูตอัตโนมัติ (Default Autoboot Timer)
+เป็น 2 วินาที
+คำสั่ง / Solution CLI:
+sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+ตรวจสอบ
+# 1. ตรวจสอบค่า GRUB_TIMEOUT ใน /etc/default/grub
+grep "GRUB_TIMEOUT" /etc/default/grub
+# 2. ตรวจสอบค่า timeout ในไฟล์ configuration หลัก
+sudo grep "timeout=" /boot/grub2/grub.cfg
+โจทย์ข้อที่ 16: การปรับแต่ง Tuning Profile ด้วย tuned
+ตรวจสอบและค้นหา Tuning Profile ที่แนะนำสำหรับระบบ จากนั้นนำโปรไฟล์นั้นมาปรับใช้ (Apply)
+กับระบบ (powersave)
+คำสั่ง / Solution CLI:
+sudo dnf install -y tuned
+sudo systemctl enable --now tuned
+tuned-adm recommend
+sudo tuned-adm profile powersave
+ตรวจสอบ
+tuned-adm active
+โจทย์ข้อที่ 17: การกำหนดค่า Chrony Time Synchronization
+กำหนดค่า Chrony เพื่อซิงโครไนซ์เวลาของระบบกับนาฬิกาฮาร์ดแวร์ (Hardware Clock)
+และทำการลบแหล่งเวลา NTP อื่นๆ ทั้งหมด
+คำสั่ง / Solution CLI:
+sudo cp /etc/chrony.conf /etc/chrony.conf.bak
+printf "local stratum 10\nrtcsync\nmakestep 1.0 3\n" | sudo tee /etc/chrony.conf
+sudo timedatectl set-timezone Asia/Bangkok
+sudo systemctl restart chronyd
+sudo systemctl enable chronyd
+ตรวจสอบ
+# 1. ตรวจสอบเนื้อหาไฟล์คอนฟิก
+cat /etc/chrony.conf
+# 2. ตรวจสอบการอ้างอิงเวลาภายใน (Local Clock)
+chronyc tracking
+# 3. ตรวจสอบสถานะระบบและ Timezone
+timedatectl status
+โจทย์ข้อที่ 18: การติดตั้ง Package Group ด้วย DNF
+ติดตั้ง Package Group ชื่อ “Development Tools” และบันทึกข้อมูลรายละเอียดของ Package Group
+ดังกล่าวไว้ในไฟล์ /var/tmp/systemtools.out
+คำสั่ง / Solution CLI:
+sudo dnf group install -y "Development Tools"
+sudo dnf group info "Development Tools" | sudo tee /var/tmp/systemtools.out > /dev/null
+ตรวจสอบ
+# ตรวจสอบเนื้อหาในไฟล์ผลลัพธ์
+cat /var/tmp/systemtools.out
+โจทย์ข้อที่ 19: การล็อกบัญชีผู้ใช้และค้นหาด้วย Regular Expression
+ล็อกบัญชีผู้ใช้ user70 จากนั้นใช้ Regular Expression ในการจับบรรทัดที่แสดงสถานะการล็อก
+และบันทึกผลลัพธ์ลงในไฟล์ /var/tmp/user70.lock
+คำสั่ง / Solution CLI:
+sudo usermod -L user70
+sudo grep '^user70:!' /etc/shadow | sudo tee /var/tmp/user70.lock > /dev/null
+ตรวจสอบ
+# 1. ตรวจสอบเนื้อหาในไฟล์ผลลัพธ์
+cat /var/tmp/user70.lock
+# 2. ตรวจสอบสถานะการล็อกบัญชีของ user70 (ต้องขึ้น LK หรือ Password locked)
+sudo passwd -S user70
+โจทย์ข้อที่ 20: การใช้งาน Rootful Container ผ่าน systemd (Quadlet)
+รัน Rootful Container และตั้งค่าให้เริ่มต้นทำงานอัตโนมัติผ่าน systemd
+คำสั่ง / Solution CLI:
+sudo dnf install -y container-tools
+sudo mkdir -p /etc/containers/system
+sudo bash -c "cat > /etc/containers/systemd/myweb.container <<'EOF'
+[Unit]
+Description=Rootful Web Container
+[Container]
+ContainerName=myweb
+Image=registry.access.redhat.com/ubi10/ubi:latest
+Exec=sleep infinity
+[Service]
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF"
+sudo podman pull registry.access.redhat.com/ubi10/ubi:latest
+sudo systemctl daemon-reload
+sudo systemctl start myweb.service
+ตรวจสอบ
+# 1. ตรวจสอบสถานะการทำงานของ Container ผ่าน Podman
+sudo podman ps
+# 2. ตรวจสอบสถานะบริการผ่าน system
+sudo systemctl status myweb.service
+โจทย์ข้อที่ 21: การจัดการ Rootless Container และ Quadlet สำหรับ User
+รัน Rootless Container ในนามของ user80 โดยใช้ Image ubi9 เวอร์ชั่นล่าสุด และทำการ Map
+ไดเรกทอรี /data01 ไปยัง /data01 ภายใน Container กำหนดค่า Systemd Service เพื่อเปิดใช้งาน
+Container อัตโนมัติเมื่อรีบูตระบบโดยไม่จำเป็นต้องให้ user80 ล็อกอินเข้าใช้งาน สร้างไฟล์ไว้ภายใต้จุด
+Mount ที่แชร์ร่วมกันและตรวจสอบความคงอยู่ของข้อมูล (Data persistence)
+จากนั้นรีบูตระบบและตรวจสอบความถูกต้องของการตั้งค่า
+คำสั่ง / Solution CLI:
+sudo useradd user80
+echo "user80:redhat" | sudo chpasswd
+sudo mkdir -p /data01
+sudo chown user80:user80 /data01
+sudo loginctl enable-linger user80
+su - user80
+mkdir -p ~/.config/containers/systemd
+cat > ~/.config/containers/systemd/c80.container <<'EOF'
+[Unit]
+Description=User80 Rootless Container
+[Container]
+ContainerName=c80
+Image=registry.access.redhat.com/ubi9/ubi:latest
+Exec=sleep infinity
+Volume=/data01:/data01:Z
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload
+systemctl --user start c80.service
+systemctl --user enable --now c80.service
+touch /data01/testfile_from_host
+ตรวจสอบ
+podman exec c80 ls -l /data01
+
+-----------------------
+Task 01: ตั้งค่า Hostname [VM1 — alpha]
+เพิ่ม Alias alpha ใน /etc/hosts (เพื่อให้ resolve ชื่อสั้นได้):
+sudo vi /etc/hosts
+# เพิ่มบรรทัด:
+192.168.0.243 alpha.exam.com alpha
+การตรวจสอบ: รันคาสั่ง hostnamectl หรือปิด/เปิด shell ใหม่ (exec bash) เพื่อให้ prompt แสดง hostname ใหม่
+Task 02: ตั้งค่าเครือข่ายด้วย nmcli [VM1 — alpha]
+หาชื่อ interface หลักก่อนด้วยคาสั่ง nmcli connection show (สมมติชื่อ connection คือ enp160):
+sudo nmcli connection modify ens160 ipv4.addresses 192.168.0.243/24
+sudo nmcli connection modify ens160 ipv4.gateway 192.168.0.1
+sudo nmcli connection modify ens160 ipv4.dns 192.168.0.1
+sudo nmcli connection modify ens160 ipv4.method manual
+sudo nmcli connection down ens160
+sudo nmcli connection up ens160
+การตรวจสอบ: ตรวจสอบผลการตั้งค่าโดยใช้คาสั่ง:
+nmcli connection show ens160
+Task 03: ตั้งค่า Hostname แบบ Manual [VM2 — beta]
+แก้ไขไฟล์ /etc/hostname โดยตรง:
+sudo vi /etc/hostname
+# ใส่เนื้อหา:
+beta.exam.com
+แก้ไข /etc/hosts เพิ่ม Alias:
+sudo vi /etc/hosts
+# เพิ่มบรรทัด:
+192.168.0.244 beta.exam.com beta
+บังคับให้มีผลทันทีโดยไม่ต้องรีบูต:
+sudo hostname beta.exam.com
+การตรวจสอบ: เปิด shell ใหม่แล้วดู prompt หรือรัน hostnamectl
+Task 04: ตั้งค่าเครือข่ายแบบ Manual [VM2 — beta]
+แก้ไขไฟล์ NetworkManager keyfile ใน /etc/NetworkManager/system-connections/ :
+ls /etc/NetworkManager/system-connections/
+sudo vi /etc/NetworkManager/system-connections/<ชื่อไฟล์>.nmconnection
+# แก้ไข/เพิ่ม section ให้เป็น static:
+[ipv4]
+method=manual
+address1=192.168.0.244/24,192.168.0.1
+dns=192.168.0.1;
+ตั้ง permission ไฟล์ให้ถูกต้อง (สาคัญมาก มิฉะนั้น NetworkManager จะไม่โหลด):
+sudo chmod 600 /etc/NetworkManager/system-connections/<ชื่อไฟล์>.nmconnection
+sudo nmcli connection reload
+sudo nmcli connection up <ชื่อ connection>
+การตรวจสอบ: ตรวจสอบการทางานด้วย ip addr show และ nmcli connection show <ชื่อ connection>
+Task 05: ทดสอบการเชื่อมต่อเครือข่าย [alpha & beta]
+บน alpha:
+ping -c2 beta
+บน beta:
+ping -c2 alpha
+Task 06: Mount ISO Image และกาหนดค่า Repository [ alpha & beta]
+Attach ISO เข้ากับ VM ผ่าน Console ของ Hypervisor (CD/DVD drive) สร้างจุด mount และกาหนดการ mount แบบถาวรใน
+/etc/fstab:
+mount /dev/cdrom /mnt/
+sudo dnf config-manager --add-repo=file:///mnt/AppStream
+sudo dnf config-manager --add-repo=file:///mnt/BaseOS
+sudo vi /etc/yum.repos.d/mnt_AppStream.repo
+เพิ่มค่า gpgcheck=0
+sudo vi /etc/yum.repos.d/mnt_BaseOS.repo
+เพิ่มค่า gpgcheck=0
+การตรวจสอบ: สั่ง sudo dnf clean all และ sudo dnf repolist ต้องเห็นทั้ง BaseOS และ AppStream enabled
+Task 07: การจัดการ SELinux Port [VM1 — alpha]
+ติดตั้งเครื่องมือ policycoreutils-python-utils และเพิ่ม port 8300/tcp เป็น http_port_t:
+sudo semanage port -a -t http_port_t -p tcp 8300
+การตรวจสอบ: รันคาสั่ง sudo semanage port -l | grep 8300 (หาก port เคยถูกกาหนด type อื่นไว้ ให้ใช้ -m แทน -a)
+Task 08: การจัดการ LVM และ VDO Volume [VM1 — alpha]
+สร้าง PV, VG และ LVM-VDO Logical Volume (ใช้ดิสก์ใหม่ 5GB เช่น /dev/sdb):
+lsblk
+sudo pvcreate /dev/nvme0n2
+sudo vgcreate vg_vdo /dev/nvme0n2
+sudo lvcreate --type vdo -n vdo1 -L 4.5G -V 20G vg_vdo/vdo1pool
+Format ด้วย ext4, สร้าง mount point และเพิ่มใน /etc/fstab:
+sudo mkfs.ext4 /dev/vg_vdo/vdo1
+sudo mkdir -p /mnt/vdo1
+sudo blkid /dev/vg_vdo/vdo1
+sudo vi /etc/fstab
+# เพิ่มบรรทัด:
+/dev/vg_vdo/vdo1 /mnt/vdo1 ext4 defaults,x-systemd.requires=vdo.service 0 0
+#ออกมา
+sudo systemctl daemon-reload
+sudo mount -a
+การตรวจสอบ: ตรวจสอบพื้นที่ดิสก์และการ mount ด้วย df -hT /mnt/vdo1
+Task 09: NFS Server + AutoFS Direct Map [alpha & beta]
+บน alpha (NFS Server):
+sudo dnf install -y nfs-utils
+sudo mkdir -p /rh_share_a
+sudo chmod 777 /rh_share_a
+sudo vi /etc/exports
+# เพิ่มบรรทัด:
+/rh_share_a 192.168.0.0/24(rw,sync,no_root_squash)
+#แล้วออกมาพร้อม save
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd –reload
+sudo systemctl enable --now nfs-server
+sudo exportfs -rav
+บน beta (AutoFS Client — Direct Map):
+sudo dnf install -y autofs nfs-utils
+sudo vi /etc/auto.master
+# เพิ่มบรรทัด Direct Map (/-):
+/- /etc/auto.direct
+sudo vi /etc/auto.direct
+# ใส่เนื้อหา:
+/mnt/rh_share_b -rw,sync alpha:/rh_share_a
+#แล้วออกมาพร้อม save
+sudo mkdir -p /mnt/rh_share_b
+sudo systemctl enable --now autofs
+sudo systemctl restart autofs
+การตรวจสอบ: สร้าง user80 บนทั้งสองเครื่อง จากนั้นทดสอบบน beta:
+cd /mnt/rh_share_b && ls
+Task 10: NFS Server + AutoFS Indirect Map (Home Directory) [alpha & beta]
+สร้าง user60 บนทั้งสองเครื่อง (sudo useradd user60 && sudo passwd user60)
+บน beta (NFS Server แชร์ home directory):
+sudo dnf install -y nfs-utils
+sudo vi /etc/exports
+# เพิ่ม:
+/home/user60 192.168.0.0/24(rw,sync,no_root_squash)
+sudo exportfs -rav
+sudo systemctl enable --now nfs-server
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd --reload
+บน alpha (AutoFS — Indirect Map):
+sudo dnf install -y autofs nfs-utils
+sudo mkdir -p /nfsdir
+sudo vi /etc/auto.master
+# เพิ่ม:
+/nfsdir /etc/auto.home
+sudo vi /etc/auto.home
+# ใส่:
+user60 -rw,sync beta:/home/user60
+sudo systemctl enable --now autofs
+sudo systemctl restart autofs
+การตรวจสอบ: ทดสอบล็อกอินด้วย user60 บน alpha แล้วเช็ค home directory ออโต้มอยท์:
+pwd
+Task 11: การจัดการ User, Group และ Permissions [VM1 — alpha]
+สร้างกลุ่ม group30 (GID 3000) และเพิ่ม user60, user80 เข้ากลุ่ม:
+sudo groupadd -g 3000 group30
+sudo usermod -aG group30 user60
+sudo usermod -aG group30 user80
+สร้างไดเรกทอรี /sdata พร้อม SetGID และสิทธิ์เขียนให้กลุ่ม:
+sudo mkdir -p /sdata
+sudo chown root:group30 /sdata
+sudo chmod 2775 /sdata
+การตรวจสอบ: ทดสอบสร้างไฟล์โดย user60 และแก้ไขโดย user80 จากนั้นตรวจสิทธิ์ด้วย ls -ld /sdata และ ls -l /sdata/file1
+Task 12: การจัดการ Sticky Bit Permissions [VM1 — alpha]
+สร้างไดเรกทอรีและตั้งค่า Sticky Bit (1777):
+sudo mkdir -p /var/dir1
+sudo chmod 1777 /var/dir1
+การตรวจสอบ: ทดสอบให้ user60 สร้างไฟล์ใน /var/dir1 แล้วให้ user80 พยายามลบไฟล์ ผลลัพธ์ต้องขึ้น Operation not
+permitted และ ls -ld /var/dir1 ต้องแสดง drwxrwxrwt
+Task 13: การค้นหา Manual Pages และ Redirect Output [VM1 — alpha]
+man -k password > /var/tmp/man.out
+# หรือ
+apropos password > /var/tmp/man.out
+การตรวจสอบ: ตรวจสอบเนื้อหาไฟล์ด้วย cat /var/tmp/man.out
+Task 14: การจัดการ Hard Links และ Symbolic Links [VM1 — alpha]
+สร้างไฟล์ต้นทาง Hard Link และ Soft Link:
+echo "original content" | sudo tee /var/tmp/lnfile1
+sudo ln /var/tmp/lnfile1 /var/tmp/lnfile2
+sudo ln -s /var/tmp/lnfile1 /boot/file1
+การตรวจสอบ: ตรวจสอบ inode และ link count ด้วย:
+sudo ls -li /var/tmp/lnfile1 /var/tmp/lnfile2
+sudo ls -l /boot/file1
+cat /var/tmp/lnfile1
+Task 15: การติดตั้ง Software Package Group [VM1 — alpha]
+sudo dnf group list --hidden | grep -i "legacy unix"
+sudo dnf groupinstall -y "Legacy UNIX Compatibility"
+การตรวจสอบ: ตรวจสอบรายการกลุ่มที่ติดตั้งแล้วด้วย sudo dnf group list --installed | grep -i "legacy unix"
+Task 16: การตั้งค่า Firewalld Zone [VM1 — alpha]
+sudo firewall-cmd --permanent --zone=external --add-service=http
+sudo firewall-cmd --reload
+การตรวจสอบ: ตรวจสอบบริการใน zone external ด้วย sudo firewall-cmd --zone=external --list-services
+Task 17: SELinux File Context และ Fcontext [VM1 — alpha]
+สร้างไฟล์ กาหนด temporary context และบันทึกกฎถาวรลง SELinux policy database:
+sudo touch /usr/testfile1
+sudo chcon -t shadow_t /usr/testfile1
+sudo semanage fcontext -a -t shadow_t '/usr/testfile1'
+sudo restorecon -v /usr/testfile1
+การตรวจสอบ: ตรวจสอบ context ด้วย ls -Z /usr/testfile1 และทดสอบรัน restorecon -v /usr/testfile1 ซ ้า context
+ต้องไม่เปลี่ยนแปลง
+Task 18: Passwordless SSH Authentication [user60: alpha → beta]
+บน alpha ในฐานะ user60 สร้าง SSH Key และคัดลอกไปยัง beta:
+su - user60
+ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+ssh-copy-id user60@beta
+การตรวจสอบ: ทดสอบล็อกอินโดยไม่ใช้รหัสผ่าน: ssh user60@beta hostname
+Task 19: การเขียน Bash Shell Script [VM1 — alpha]
+สร้างสคริปต์ /usr/local/bin/checkfiles.sh:
+sudo vi /usr/local/bin/checkfiles.sh
+-----------ใส่ข้อมูลแล้วออก-------------
+#!/bin/bash
+for f in /usr/bin/ac*; do
+if [ -f "$f" ]; then
+stat "$f"
+fi
+done
+ให้สิทธิ์รัน:
+sudo chmod +x /usr/local/bin/checkfiles.sh
+การตรวจสอบ: ทดสอบรันสคริปต์ด้วย /usr/local/bin/checkfiles.sh
+Task 20: Container Image และ Rootless Container [VM1 — alpha]
+ติดตั้ง podman สร้าง Containerfile และ Build Image:
+sudo dnf install -y podman
+mkdir -p ~/mycontainer && cd ~/mycontainer
+vi Containerfile
+# เนื้อหา Containerfile:
+FROM registry.access.redhat.com/ubi8/ubi:latest
+CMD ls && pwd
+#:wq ออกมา
+podman build -t custom-ubi8 -f Containerfile .
+สลับเป็น user60 แล้วรัน rootless container:
+su - user60
+mkdir -p ~/mycontainer1 && cd ~/mycontainer1
+podman build -t custom-ubi8 -f Containerfile .
+podman run --name mycontainer1 custom-ubi8
+การตรวจสอบ: ตรวจสอบ container status และ log ด้วย podman ps -a และ podman logs mycontainer1
+Task 21: Rootless Container + Systemd Autostart [VM1 — alpha]
+ในฐานะ user60 รัน container และสร้าง systemd unit service:
+su - user60
+podman run -d --name webcontainer -p 10000:80 utility.lab.example.com/ubi8/ubi:latest sleep infinity
+mkdir -p ~/.config/systemd/user
+cd ~/.config/systemd/user
+podman generate systemd --new --name webcontainer --files
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+systemctl --user daemon-reload
+systemctl --user enable --now container-webcontainer.service
+เปิด Linger สาหรับ user60 (ทาโดย root):
+exit # กลับเป็น root
+sudo loginctl enable-linger user60
+การตรวจสอบ: ตรวจสอบ Linger และ container port:
+loginctl show-user user60 | grep Linger
+su - user60 && podman port webcontainer
+Task 22: Container Storage, Env Variables และ Persistence [VM1 — alpha]
+ในฐานะ user60 เตรียมโฟลเดอร์ และรัน container พร้อม volume, env, port mapping:
+su - user60
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+mkdir -p /home/user60/host_data01
+sudo chown -R user60:user60 /host_data01
+podman pull registry.access.redhat.com/ubi9/ubi:latest
+podman run -d --name datacontainer -v /host_data01:/container_data01:Z -e ENVIRON=Exam -p 1050:1050
+registry.access.redhat.com/ubi9/ubi9:latest sleep infinity
+สร้าง systemd unit สาหรับ autostart และเปิด Linger:
+mkdir -p ~/.config/systemd/user
+cd ~/.config/systemd/user
+podman generate systemd --new --name datacontainer --files
+systemctl --user daemon-reload
+systemctl --user enable --now container-datacontainer.service
+exit
+sudo loginctl enable-linger user60
+การตรวจสอบ: 1) ทดสอบ Persistence:
+su - user60
+podman exec datacontainer touch /container_data01/persisttest.txt
+ls /host_data01/ # ต้องเห็นไฟล์บน host
+2) ทดสอบ Environment Variable:
+podman exec datacontainer printenv ENVIRON
+3) ทดสอบหลัง Reboot (sudo reboot): podman ps และ ls /host_data01/
