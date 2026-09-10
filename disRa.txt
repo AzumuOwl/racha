@@ -1,0 +1,125 @@
+นี่คือสรุปเนื้อหาสำหรับคำสั่งชุดแรก (Task 01 - Task 22) จากเอกสารฉบับแรกครับ
+
+* **Task 01: ตั้งค่า Hostname [VM1 - alpha]** — กำหนดชื่อ Hostname ของเครื่องเป็น `alpha.exam.com` และบันทึก IP กับชื่อแฝงลงไฟล์ `/etc/hosts`
+
+* **Task 02: ตั้งค่าเครือข่ายด้วย nmcli [VM1 - alpha]** — กำหนดค่า IP Address, Gateway, DNS แบบ Manual ให้ Interface `ens160` ผ่านคำสั่ง `nmcli`
+
+* **Task 03: ตั้งค่า Hostname แบบ Manual [VM2 - beta]** — ตั้งชื่อ Hostname ของเครื่อง VM2 เป็น `beta.exam.com` และผูก IP เข้ากับไฟล์ `/etc/hostname` และ `/etc/hosts`
+
+* **Task 04: ตั้งค่าเครือข่ายแบบ Manual [VM2 - beta]** — ปรับแต่งสิทธิ์ไฟล์คอนฟิกเครือข่าย (`.nmconnection`) และสั่งโหลดการตั้งค่าเครือข่ายใหม่
+
+
+* **Task 05: ทดสอบการเชื่อมต่อเครือข่าย [alpha & beta]** — ส่งสัญญาณ `ping` ทดสอบการรับส่งข้อมูลระหว่างเครื่อง alpha และ beta
+
+
+* **Task 06: Mount ISO Image และกำหนดค่า Repository [alpha & beta]** — Mount แผ่น ISO เข้ากับ `/mnt/` และตั้งค่าไฟล์คลังแพ็กเกจ BaseOS / AppStream ให้ติดตั้งซอฟต์แวร์ได้จากไฟล์ ISO
+
+
+* **Task 07: การจัดการ SELinux Port [VM1 - alpha]** — อนุญาตให้ SELinux ยอมรับการทำงานของบริการ Web (http) ผ่านพอร์ตหมายเลข 8300
+
+
+* **Task 08: การจัดการ LVM และ VDO Volume [VM1 - alpha]** — สร้าง Logical Volume ชนิด VDO (Virtual Data Optimizer) เพื่อทำการบีบอัดและลดความซ้ำซ้อนของข้อมูลในดิสก์
+
+
+* **Task 09: NFS Server + AutoFS Direct Map [alpha & beta]** — ตั้งค่าเครื่อง alpha เป็น NFS Server แชร์โฟลเดอร์ และให้เครื่อง beta เชื่อมต่อไดเรกทอรีอัตโนมัติผ่าน AutoFS แบบ Direct Map
+
+
+* **Task 10: NFS Server + AutoFS Indirect Map (Home Directory) [alpha & beta]** — แชร์ Home Directory ของผู้ใช้ผ่าน NFS และตั้งค่า AutoFS แบบ Indirect Map ให้ Mount ไดเรกทอรีเมื่อมีการเข้าใช้งาน
+
+
+* **Task 11: การจัดการ User, Group และ Permissions [VM1 - alpha]** — สร้างกลุ่ม `group30` เพิ่มผู้ใช้เข้ากลุ่ม และกำหนดสิทธิ์การเข้าใช้งานโฟลเดอร์ `/sdata` พร้อมเปิดใช้งาน SGID (2775)
+
+
+* **Task 12: การจัดการ Sticky Bit Permissions [VM1 - alpha]** — ตั้งค่าสิทธิ์ Sticky Bit (1777) บนโฟลเดอร์เพื่อให้ทุกคนเขียนไฟล์ได้ แต่ผู้ใช้คนอื่นไม่สามารถลบไฟล์ของผู้อื่นได้
+
+
+* **Task 13: การค้นหา Manual Pages และ Redirect Output [VM1 - alpha]** — ค้นหาคู่มือคำสั่ง (Man page) ที่เกี่ยวข้องกับคำว่า "password" แล้วเซฟผลลัพธ์ลงไฟล์
+
+
+* **Task 14: การจัดการ Hard Links และ Symbolic Links [VM1 - alpha]** — สร้างไฟล์ทดสอบ พร้อมทำ Hard Link (ลิงก์ตรงไปยังข้อมูล) และ Symbolic Link (ทางลัดแบบ Shortcut)
+
+
+* **Task 15: การติดตั้ง Software Package Group [VM1 - alpha]** — ค้นหาและติดตั้งกลุ่มโปรแกรมซอฟต์แวร์ "Legacy UNIX Compatibility" ผ่าน DNF
+
+
+* **Task 16: การตั้งค่า Firewalld Zone [VM1 - alpha]** — เพิ่มการอนุญาตบริการ HTTP ใน Firewall โซน `external` แบบถาวร
+
+
+* **Task 17: SELinux File Context และ Fcontext [VM1 - alpha]** — กำหนด Security Context ประเภท `shadow_t` ให้กับไฟล์ และสั่งอัปเดตระบบความปลอดภัย SELinux
+
+
+* **Task 18: Passwordless SSH Authentication [VM1 - alpha]** — สร้าง SSH Key Pair และคัดลอก Public Key ไปยังเครื่อง beta เพื่อให้ล็อกอินข้ามเครื่องได้โดยไม่ต้องใส่รหัสผ่าน
+
+
+* **Task 19: การเขียน Bash Shell Script [VM1 - alpha]** — เขียนสคริปต์สแกนไฟล์ใน `/usr/bin/` ที่ขึ้นต้นด้วย "ac" เพื่อตรวจสอบสถานะไฟล์ด้วยคำสั่ง `stat`
+
+* **Task 20: Container Image และ Rootless Container [VM1 - alpha]** — สร้าง Container Image จาก Containerfile และรัน Container ในสิทธิ์ User ปกติ (Rootless)
+
+
+* **Task 21: Rootless Container + Systemd Autostart [VM1 - alpha]** — รัน Web Container ในสิทธิ์ User แปลงเป็น Systemd Service และเปิดใช้งาน Linger เพื่อให้ Container ทำงานอัตโนมัติแม้ไม่ได้ล็อกอินค้างไว้
+
+
+* **Task 22: Container Storage, Env Variables และ Persistence [VM1 - alpha]** — รัน Rootless Container โดยมีการผูกโฟลเดอร์แชร์ข้อมูล (Volume Mount), กำหนด Environment Variable และตั้งค่าเริ่มทำงานอัตโนมัติผ่าน Systemd
+นี่คือคำอธิบายสรุปว่าคำสั่งในแต่ละข้อ (Task 01 - 21) ใช้สำหรับการทำอะไรบ้างครับ:
+
+* **โจทย์ข้อที่ 01: การกำหนดค่าการเชื่อมต่อเครือข่าย** — ตั้งค่า IP Address, Gateway, DNS Server และโหมด Network เป็น Manual บน Network Card (ens160) ผ่านคำสั่ง `nmcli`
+
+* **โจทย์ข้อที่ 02: การตั้งค่า Hostname และ Alias** — เปลี่ยนชื่อเครื่อง (Hostname) และผูกชื่อโดเมน/ชื่อแฝงกับ IP Address ในไฟล์ `/etc/hosts` เพื่อให้เรียกหาเครื่องอื่นด้วยชื่อได้
+
+
+* **โจทย์ข้อที่ 03: การสร้างผู้ใช้พร้อมกำหนด UID, Comment และ Inactivity** — สร้าง User ใหม่ กำหนดรหัสประจำตัว (UID) ใส่ข้อความอธิบายผู้ใช้ และตั้งค่าให้บัญชีปิดอัตโนมัติหากไม่เข้าใช้งานเกิน 30 วัน
+
+
+* **โจทย์ข้อที่ 04: การสร้าง Non-interactive User** — สร้าง User ที่ไม่สามารถล็อกอินเข้าสู่ Shell แบบปกติได้ (ใช้สำหรับรัน Service หรือ Background Process)
+
+
+* **โจทย์ข้อที่ 05: การ Mount ISO และตั้งค่า DNF Repository ถาวร** — เชื่อมต่อดิสก์ ISO ของ RHEL เข้ากับระบบแบบถาวร (`/etc/fstab`) และตั้งค่าคลังแพ็กเกจ (Repository) ในเครื่องให้อ่านไฟล์จาก ISO ได้โดยตรง
+
+
+* **โจทย์ข้อที่ 06: การจัดการ LVM** — แบ่ง Partition ใหม่ จัดทำ Physical Volume, Volume Group, Logical Volume ฟอร์แมตเป็น XFS และตั้งค่า Mount อัตโนมัติเมื่อเปิดเครื่อง
+
+
+* **โจทย์ข้อที่ 07: การจัดการ Permissions และ Group Membership** — สร้าง Group เปลี่ยนเจ้าของกลุ่มของโฟลเดอร์ และตั้งค่าสิทธิ์เข้าถึงรวมถึงเปิดใช้งาน SGID Bit (2770) เพื่อให้ไฟล์ที่สร้างในโฟลเดอร์สืบทอดสิทธิ์ของกลุ่ม
+
+
+* **โจทย์ข้อที่ 08: การขยายขนาด Logical Volume แบบ Online** — ขยายขนาดพื้นที่ของ Logical Volume และขยายระบบไฟล์ (Filesystem) เพิ่มขึ้น 64MB โดยไม่ต้องหยุดการทำงานหรือ Unmount
+
+
+* **โจทย์ข้อที่ 09: การสร้าง Swap Partition ด้วย UUID** — สร้างพาร์ทิชันพื้นที่หน่วยความจำเสมือน (Swap) ขนาด 85MB และตั้งค่าเรียกใช้งานด้วย UUID ผ่าน `/etc/fstab`
+
+* **โจทย์ข้อที่ 10: การสร้าง Ext4 Partition พร้อม Label** — สร้างพาร์ทิชันดิสก์ ฟอร์แมตเป็นระบบไฟล์ Ext4 ตั้งชื่อกำกับ (Label) และทำ Mount ถาวรโดยอ้างอิงจากชื่อ Label
+
+
+* **โจทย์ข้อที่ 11: การบีบอัดไฟล์ด้วย tar และ gzip** — รวบรวมและบีบอัดไฟล์ทั้งหมดในโฟลเดอร์ `/etc` เป็นไฟล์อาร์ไคฟ์ `.tar.gz` เพื่อนำไปใช้สำรองข้อมูล
+
+
+* **โจทย์ข้อที่ 12: การจัดการ SELinux File Context** — กำหนด Security Context ของระบบความปลอดภัย SELinux ให้กับไดเรกทอรีใหม่ โดยอ้างอิงรูปแบบสิทธิ์จากโฟลเดอร์ระดับ Admin
+
+
+* **โจทย์ข้อที่ 13: การตั้งค่า Cron Job / Systemd Timer** — ตั้งเวลางานอัตโนมัติ (Cron Job) ให้ค้นหาไฟล์ชื่อ "core" ใน `/var` แล้วคัดลอกไปยังโฟลเดอร์เป้าหมายทุกวันจันทร์ เวลา 01:20 น. ในนาม User70
+
+
+* **โจทย์ข้อที่ 14: การค้นหาไฟล์ด้วย find (Modified Time)** — ค้นหาไฟล์ในระบบทั้งหมดที่มีการแก้ไขเนื้อหาภายใน 30 วันที่ผ่านมา แล้วบันทึกรายชื่อลงในไฟล์ข้อความ
+
+
+* **โจทย์ข้อที่ 15: การตั้งค่า GRUB Bootloader Autoboot Timer** — ปรับเวลาการนับถอยหลังของหน้าจอเลือก OS ก่อนบูตเครื่อง (GRUB Menu) ให้เหลือ 2 วินาที
+
+
+* **โจทย์ข้อที่ 16: การปรับแต่ง Tuning Profile ด้วย tuned** — ติดตั้งบริการปรับแต่งประสิทธิภาพระบบ แล้วเปิดใช้งานโปรไฟล์ประหยัดพลังงาน (`powersave`)
+
+
+* **โจทย์ข้อที่ 17: การกำหนดค่า Chrony Time Synchronization** — ตั้งค่าบริการ Synchronize เวลาของระบบ ให้ใช้เวลาจากระบบนาฬิกาภายในเครื่อง (Hardware Clock) และเปลี่ยน Timezone เป็น Asia/Bangkok
+
+
+* **โจทย์ข้อที่ 18: การติดตั้ง Package Group ด้วย DNF** — ติดตั้งกลุ่มของเครื่องมือและซอฟต์แวร์สำหรับการพัฒนาโปรแกรม ("Development Tools") พร้อมส่งออกรายละเอียดของกลุ่มซอฟต์แวร์เก็บไว้
+
+
+* **โจทย์ข้อที่ 19: การล็อกบัญชีผู้ใช้และค้นหาด้วย Regular Expression** — สั่งระงับการใช้งานบัญชีผู้ใช้ (Lock) แล้วค้นหารายชื่อบัญชีที่ถูกล็อกในระบบปฏิบัติการผ่านสัญลักษณ์ Regex
+
+
+* **โจทย์ข้อที่ 20: การใช้งาน Rootful Container ผ่าน systemd (Quadlet)** — รัน Container ในสิทธิ์ Root โดยเขียนไฟล์คอนฟิกแบบ Quadlet เพื่อให้ Systemd ควบคุมการเปิด/ปิด และเริ่มทำงานอัตโนมัติเมื่อเปิดเครื่อง
+
+
+* **โจทย์ข้อที่ 21: การจัดการ Rootless Container และ Quadlet สำหรับ User** — รัน Container ในสิทธิ์ User ปกติ (ไม่ใช้ Root) เชื่อมต่อโฟลเดอร์แชร์ข้อมูล (Volume Mapping) พร้อมตั้งค่า Systemd แบบ User Service และเปิด Linger ให้ Container ทำงานต่อเนื่องแม้ไม่ได้ล็อกอินค้างไว้
+
+

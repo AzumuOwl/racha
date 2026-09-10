@@ -1,0 +1,727 @@
+
+---
+
+**Task 01: ตั้งค่า Hostname [VM1 - alpha]**
+
+```bash
+sudo hostnamectl set-hostname alpha.exam.com
+echo "192.168.0.243 alpha.exam.com alpha" | sudo tee -a /etc/hosts
+
+```
+
+---
+
+**Task 02: ตั้งค่าเครือข่ายด้วย nmcli [VM1 - alpha]**
+
+```bash
+sudo nmcli connection modify ens160 ipv4.addresses 192.168.0.243/24
+sudo nmcli connection modify ens160 ipv4.gateway 192.168.0.1
+sudo nmcli connection modify ens160 ipv4.dns 192.168.0.1
+sudo nmcli connection modify ens160 ipv4.method manual
+sudo nmcli connection down ens160
+sudo nmcli connection up ens160
+
+```
+
+---
+
+**Task 03: ตั้งค่า Hostname แบบ Manual [VM2 - beta]**
+
+```bash
+echo "beta.exam.com" | sudo tee /etc/hostname
+echo "192.168.0.244 beta.exam.com beta" | sudo tee -a /etc/hosts
+sudo hostnamectl set-hostname beta.exam.com
+
+```
+
+---
+
+**Task 04: ตั้งค่าเครือข่ายแบบ Manual [VM2 - beta]**
+
+```bash
+# หมายเหตุ: แทนที่ <ชื่อไฟล์> ด้วยชื่อไฟล์ connection จริงในเครื่อง เช่น ens160 หรือ ens168
+sudo chmod 600 /etc/NetworkManager/system-connections/<ชื่อไฟล์>.nmconnection
+sudo nmcli connection reload
+sudo nmcli connection up <ชื่อ connection>
+
+```
+
+---
+
+**Task 05: ทดสอบการเชื่อมต่อเครือข่าย [alpha & beta]**
+
+```bash
+# บน alpha
+ping -c 2 beta
+
+# บน beta
+ping -c 2 alpha
+
+```
+
+---
+
+**Task 06: Mount ISO Image และกำหนดค่า Repository [alpha & beta]**
+
+```bash
+sudo mount /dev/cdrom /mnt/
+sudo dnf config-manager --add-repo=file:///mnt/AppStream
+sudo dnf config-manager --add-repo=file:///mnt/BaseOS
+echo "gpgcheck=0" | sudo tee -a /etc/yum.repos.d/mnt_AppStream.repo
+echo "gpgcheck=0" | sudo tee -a /etc/yum.repos.d/mnt_BaseOS.repo
+sudo dnf clean all
+sudo dnf repolist
+
+```
+
+---
+
+**Task 07: การจัดการ SELinux Port [VM1 - alpha]**
+
+```bash
+sudo dnf install -y policycoreutils-python-utils
+sudo semanage port -a -t http_port_t -p tcp 8300
+
+```
+
+---
+
+**Task 08: การจัดการ LVM และ VDO Volume [VM1 - alpha]**
+
+```bash
+lsblk
+sudo pvcreate /dev/nvme0n2
+sudo vgcreate vg_vdo /dev/nvme0n2
+sudo lvcreate --type vdo -n vdo1 -L 4.5G -V 20G vg_vdo/vdo1pool
+sudo mkfs.ext4 /dev/vg_vdo/vdo1
+sudo mkdir -p /mnt/vdo1
+sudo blkid /dev/vg_vdo/vdo1
+echo "/dev/vg_vdo/vdo1 /mnt/vdo1 ext4 defaults,x-systemd.requires=vdo.service 0 0" | sudo tee -a /etc/fstab
+sudo systemctl daemon-reload
+sudo mount -a
+
+```
+
+---
+
+**Task 09: NFS Server + AutoFS Direct Map [alpha & beta]**
+
+*บน alpha (NFS Server):*
+
+```bash
+sudo dnf install -y nfs-utils
+sudo mkdir -p /rh_share_a
+sudo chmod 777 /rh_share_a
+echo "/rh_share_a 192.168.0.0/24(rw,sync,no_root_squash)" | sudo tee -a /etc/exports
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd --reload
+sudo systemctl enable --now nfs-server
+sudo exportfs -rav
+
+```
+
+*บน beta (AutoFS Client - Direct Map):*
+
+```bash
+sudo dnf install -y autofs nfs-utils
+echo "/- /etc/auto.direct" | sudo tee -a /etc/auto.master
+echo "/mnt/rh_share_b -rw,sync alpha:/rh_share_a" | sudo tee -a /etc/auto.direct
+sudo mkdir -p /mnt/rh_share_b
+sudo systemctl enable --now autofs
+sudo systemctl restart autofs
+
+```
+
+---
+
+**Task 10: NFS Server + AutoFS Indirect Map (Home Directory) [alpha & beta]**
+
+*เตรียม User บนทั้งสองเครื่อง:*
+
+```bash
+sudo useradd user60 && echo "user60:password" | sudo chpasswd
+
+```
+
+*บน beta (NFS Server):*
+
+```bash
+sudo dnf install -y nfs-utils
+echo "/home/user60 192.168.0.0/24(rw,sync,no_root_squash)" | sudo tee -a /etc/exports
+sudo exportfs -rav
+sudo systemctl enable --now nfs-server
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd --reload
+
+```
+
+*บน alpha (AutoFS Indirect Map):*
+
+```bash
+sudo dnf install -y autofs nfs-utils
+sudo mkdir -p /nfsdir
+echo "/nfsdir /etc/auto.home" | sudo tee -a /etc/auto.master
+echo "user60 -rw,sync beta:/home/user60" | sudo tee -a /etc/auto.home
+sudo systemctl enable --now autofs
+sudo systemctl restart autofs
+
+```
+
+---
+
+**Task 11: การจัดการ User, Group และ Permissions [VM1 - alpha]**
+
+```bash
+sudo groupadd -g 3000 group30
+sudo usermod -aG group30 user60
+sudo usermod -aG group30 user80
+sudo mkdir -p /sdata
+sudo chown root:group30 /sdata
+sudo chmod 2775 /sdata
+
+```
+
+---
+
+**Task 12: การจัดการ Sticky Bit Permissions [VM1 - alpha]**
+
+```bash
+sudo mkdir -p /var/dir1
+sudo chmod 1777 /var/dir1
+
+```
+
+---
+
+**Task 13: การค้นหา Manual Pages และ Redirect Output [VM1 - alpha]**
+
+```bash
+man -k password > /var/tmp/man.out
+
+```
+
+---
+
+**Task 14: การจัดการ Hard Links และ Symbolic Links [VM1 - alpha]**
+
+```bash
+echo "original content" | sudo tee /var/tmp/lnfile1
+sudo ln /var/tmp/lnfile1 /var/tmp/lnfile2
+sudo ln -s /var/tmp/lnfile1 /boot/file1
+
+```
+
+---
+
+**Task 15: การติดตั้ง Software Package Group [VM1 - alpha]**
+
+```bash
+sudo dnf group list --hidden | grep -i "legacy unix"
+sudo dnf groupinstall -y "Legacy UNIX Compatibility"
+
+```
+
+---
+
+**Task 16: การตั้งค่า Firewalld Zone [VM1 - alpha]**
+
+```bash
+sudo firewall-cmd --permanent --zone=external --add-service=http
+sudo firewall-cmd --reload
+
+```
+
+---
+
+**Task 17: SELinux File Context และ Fcontext [VM1 - alpha]**
+
+```bash
+sudo touch /usr/testfile1
+sudo chcon -t shadow_t /usr/testfile1
+sudo semanage fcontext -a -t shadow_t '/usr/testfile1'
+sudo restorecon -v /usr/testfile1
+
+```
+
+---
+
+**Task 18: Passwordless SSH Authentication [VM1 - alpha]**
+
+```bash
+# รันในสิทธิ์ user60
+su - user60
+ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+ssh-copy-id user60@beta
+
+```
+
+---
+
+**Task 19: การเขียน Bash Shell Script [VM1 - alpha]**
+
+```bash
+sudo cat << 'EOF' > /usr/local/bin/checkfiles.sh
+#!/bin/bash
+for f in /usr/bin/ac*; do
+  if [ -f "$f" ]; then
+    stat "$f"
+  fi
+done
+EOF
+
+sudo chmod +x /usr/local/bin/checkfiles.sh
+
+```
+
+---
+
+**Task 20: Container Image และ Rootless Container [VM1 - alpha]**
+
+```bash
+# ติดตั้ง Podman
+sudo dnf install -y podman
+
+# สร้าง Containerfile ในฐานะ user60
+su - user60
+mkdir -p ~/mycontainer1 && cd ~/mycontainer1
+cat << 'EOF' > Containerfile
+FROM registry.access.redhat.com/ubi8/ubi:latest
+CMD ls && pwd
+EOF
+
+podman build -t custom-ubi8 -f Containerfile .
+podman run --name mycontainer1 custom-ubi8
+
+```
+
+---
+
+**Task 21: Rootless Container + Systemd Autostart [VM1 - alpha]**
+
+```bash
+# รันในฐานะ user60
+su - user60
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+podman run -d --name webcontainer -p 10000:80 utility.lab.example.com/ubi8/ubi:latest sleep infinity
+mkdir -p ~/.config/systemd/user
+cd ~/.config/systemd/user
+podman generate systemd --new --name webcontainer --files
+systemctl --user daemon-reload
+systemctl --user enable --now container-webcontainer.service
+
+# เปิด Linger (สลับกลับเป็น root)
+exit
+sudo loginctl enable-linger user60
+
+```
+
+---
+
+**Task 22: Container Storage, Env Variables และ Persistence [VM1 - alpha]**
+
+```bash
+# รันในฐานะ user60
+su - user60
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+mkdir -p /home/user60/host_data01
+podman pull registry.access.redhat.com/ubi9/ubi:latest
+podman run -d --name datacontainer -v /home/user60/host_data01:/container_data01:Z -e ENVIRON=Exam -p 1050:1050 registry.access.redhat.com/ubi9/ubi:latest sleep infinity
+
+# สร้าง Systemd Service สำหรับ datacontainer
+mkdir -p ~/.config/systemd/user
+cd ~/.config/systemd/user
+podman generate systemd --new --name datacontainer --files
+systemctl --user daemon-reload
+systemctl --user enable --now container-datacontainer.service
+
+# เปิด Linger (สลับกลับเป็น root)
+exit
+sudo loginctl enable-linger user60
+
+```
+นี่คือขั้นตอนเพิ่มเติมสำหรับการสร้างหน้าเว็บ HTML และเปิดใช้งานผ่าน Podman Web Server (Nginx):
+
+### 1. สลับเป็น User และสร้างโฟลเดอร์สำหรับเก็บไฟล์ HTML
+
+```bash
+su - user60
+mkdir -p ~/web_data
+
+```
+
+### 2. สร้างไฟล์ `index.html` สำหรับแสดงผลหน้าเว็บ
+
+```bash
+cat << 'EOF' > ~/web_data/index.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Podman Web Server</title>
+</head>
+<body>
+    <h1>Hello from Podman Web Server!</h1>
+    <p>This page is hosted on VM1 (alpha.exam.com)</p>
+</body>
+</html>
+EOF
+
+```
+
+### 3. รัน Podman Web Server (Nginx) เปิด Port 8080
+
+```bash
+podman run -d \
+  --name mywebserver \
+  -p 8080:80 \
+  -v ~/web_data:/usr/share/nginx/html:Z \
+  registry.access.redhat.com/ubi8/nginx-120
+
+```
+
+---
+
+### 4. เปิด Firewall Port บน Host (ทำในสิทธิ์ root)
+
+```bash
+# สลับเป็น root หรือใช้ sudo
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+
+```
+
+---
+
+### 5. วิธีทดสอบเปิดหน้าเว็บ
+
+* **ทดสอบผ่าน Terminal บน Server:**
+```bash
+curl http://localhost:8080
+
+```
+
+
+* **เปิดผ่าน Web Browser บนเครื่องคอมพิวเตอร์:**
+เข้า URL: `[http://192.168.0.243:8080](http://192.168.0.243:8080)`
+
+-------------------------------------------
+นี่คือชุดคำสั่ง CLI ทั้ง 21 ข้อจากเอกสาร **NECS1203** ที่ได้รับการตรวจสอบ แก้ไขข้อผิดพลาดทางไวยากรณ์ (Syntax) แก้ไขการพิมพ์ผิด (Typo) และจัดรูปแบบให้ถูกต้องตามมาตรฐาน Linux CLI เพื่อพร้อมนำไปใช้งานครับ
+
+---
+
+**โจทย์ข้อที่ 01: การกำหนดค่าการเชื่อมต่อเครือข่าย (Network Configuration)**
+
+```bash
+# VM1
+sudo nmcli con mod ens160 ipv4.addresses 192.168.100.10/29 ipv4.gateway 192.168.100.9 ipv4.dns "1.1.1.1, 8.8.8.8" ipv4.method manual
+sudo nmcli con up ens160
+
+# VM2
+sudo nmcli con mod ens160 ipv4.addresses 192.168.100.11/29 ipv4.gateway 192.168.100.9 ipv4.dns "1.1.1.1, 8.8.8.8" ipv4.method manual
+sudo nmcli con up ens160
+
+```
+
+---
+
+**โจทย์ข้อที่ 02: การตั้งค่า Hostname และ Alias**
+
+```bash
+# VM1
+sudo hostnamectl set-hostname necs1.exam.com
+echo "192.168.100.10 necs1.exam.com necs1" | sudo tee -a /etc/hosts
+echo "192.168.100.11 necs2.exam.com necs2" | sudo tee -a /etc/hosts
+
+# VM2
+sudo hostnamectl set-hostname necs2.exam.com
+echo "192.168.100.10 necs1.exam.com necs1" | sudo tee -a /etc/hosts
+echo "192.168.100.11 necs2.exam.com necs2" | sudo tee -a /etc/hosts
+
+```
+
+---
+
+**โจทย์ข้อที่ 03: การสร้างผู้ใช้พร้อมกำหนด UID, Comment และ Inactivity**
+
+```bash
+sudo useradd -u 7000 -c "I am user70" -f 30 user70
+echo "user70:redhat" | sudo chpasswd
+sudo chage -l user70
+
+```
+
+---
+
+**โจทย์ข้อที่ 04: การสร้าง Non-interactive User**
+
+```bash
+sudo useradd -s /sbin/nologin user50
+grep user50 /etc/passwd
+
+```
+
+---
+
+**โจทย์ข้อที่ 05: การ Mount ISO และตั้งค่า DNF Repository ถาวร**
+
+```bash
+sudo mkdir -p /mnt/dvdrom
+echo "/dev/cdrom /mnt/dvdrom iso9660 defaults 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+
+sudo tee /etc/yum.repos.d/local.repo > /dev/null <<'EOF'
+[BaseOS]
+name=BaseOS Repository
+baseurl=file:///mnt/dvdrom/BaseOS
+enabled=1
+gpgcheck=0
+
+[AppStream]
+name=AppStream Repository
+baseurl=file:///mnt/dvdrom/AppStream
+enabled=1
+gpgcheck=0
+EOF
+
+sudo dnf clean all
+sudo dnf repolist
+
+```
+
+---
+
+**โจทย์ข้อที่ 06: การจัดการ LVM (Volume Group & Logical Volume)**
+
+```bash
+printf "n\np\n1\n\n+400M\nt\n8e\nw\n" | sudo fdisk /dev/nvme0n2
+sudo partprobe /dev/nvme0n2
+sudo pvcreate /dev/nvme0n2p1
+sudo vgcreate -s 8M vg1 /dev/nvme0n2p1
+sudo lvcreate -l 10 -n lv1 vg1
+sudo mkfs.xfs /dev/vg1/lv1 หรือ sudo mkfs.ext4 /dev/vg1/lv1
+sudo mkdir -p /mnt/lvfs1
+echo "/dev/vg1/lv1 /mnt/lvfs1 xfs defaults 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+sudo touch /mnt/lvfs1/lv1file1
+
+```
+
+---
+
+**โจทย์ข้อที่ 07: การจัดการ Permissions และ Group Membership**
+
+```bash
+sudo groupadd group20
+sudo chgrp group20 /mnt/lvfs1
+sudo chmod 2770 /mnt/lvfs1
+ls -ld /mnt/lvfs1
+
+```
+
+---
+
+**โจทย์ข้อที่ 08: การขยายขนาด Logical Volume แบบ Online**
+
+```bash
+sudo lvextend -L +64M -r /dev/vg1/lv1
+sudo lvs /dev/vg1/lv1
+
+```
+
+---
+
+**โจทย์ข้อที่ 09: การสร้าง Swap Partition ด้วย UUID**
+
+```bash
+printf "n\np\n2\n\n+85M\nt\n2\n82\nw\n" | sudo fdisk /dev/nvme0n2
+sudo partprobe /dev/nvme0n2
+sudo mkswap /dev/nvme0n2p2
+echo "UUID=$(sudo blkid -s UUID -o value /dev/nvme0n2p2) none swap defaults 0 0" | sudo tee -a /etc/fstab
+sudo swapon -a
+swapon --show
+
+```
+
+---
+
+**โจทย์ข้อที่ 10: การสร้าง Ext4 Partition พร้อม Label**
+
+```bash
+printf "n\np\n3\n\n+100M\nw\n" | sudo fdisk /dev/nvme0n2
+sudo partprobe /dev/nvme0n2
+sudo mkfs.ext4 -L stdlabel /dev/nvme0n2p3
+sudo mkdir -p /mnt/stdfs1
+echo "LABEL=stdlabel /mnt/stdfs1 ext4 defaults 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+sudo touch /mnt/stdfs1/stdfile1
+
+```
+
+---
+
+**โจทย์ข้อที่ 11: การบีบอัดไฟล์ด้วย tar และ gzip**
+
+```bash
+sudo tar -czvf /var/tmp/etc_backup.tar.gz /etc
+ls -lh /var/tmp/etc_backup.tar.gz
+
+```
+
+---
+
+**โจทย์ข้อที่ 12: การจัดการ SELinux File Context**
+
+```bash
+sudo mkdir -p /direct01
+sudo semanage fcontext -a -t admin_home_t "/direct01(/.*)?"
+sudo restorecon -Rv /direct01
+ls -Zd /direct01
+
+```
+
+---
+
+**โจทย์ข้อที่ 13: การตั้งค่า Cron Job / Systemd Timer**
+
+```bash
+sudo mkdir -p /var/tmp/coredir1
+sudo chown user70:user70 /var/tmp/coredir1
+(sudo crontab -u user70 -l 2>/dev/null; echo "20 01 * * 1 /usr/bin/find /var -name \"core\" -exec cp {} /var/tmp/coredir1/ \;") | sudo crontab -u user70 -
+sudo crontab -u user70 -l
+
+```
+
+---
+
+**โจทย์ข้อที่ 14: การค้นหาไฟล์ด้วย find (Modified Time)**
+
+```bash
+sudo find / -mtime -30 -type f 2>/dev/null | sudo tee /var/tmp/modfiles.txt > /dev/null
+wc -l /var/tmp/modfiles.txt
+
+```
+
+---
+
+**โจทย์ข้อที่ 15: การตั้งค่า GRUB Bootloader Autoboot Timer**
+
+```bash
+sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+grep "GRUB_TIMEOUT" /etc/default/grub
+
+```
+
+---
+
+**โจทย์ข้อที่ 16: การปรับแต่ง Tuning Profile ด้วย tuned**
+
+```bash
+sudo dnf install -y tuned
+sudo systemctl enable --now tuned
+tuned-adm recommend
+sudo tuned-adm profile powersave
+tuned-adm active
+
+```
+
+---
+
+**โจทย์ข้อที่ 17: การกำหนดค่า Chrony Time Synchronization**
+
+```bash
+sudo cp /etc/chrony.conf /etc/chrony.conf.bak
+printf "local stratum 10\nrtcsync\nmakestep 1.0 3\n" | sudo tee /etc/chrony.conf
+sudo timedatectl set-timezone Asia/Bangkok
+sudo systemctl restart chronyd
+sudo systemctl enable chronyd
+chronyc tracking
+
+```
+
+---
+
+**โจทย์ข้อที่ 18: การติดตั้ง Package Group ด้วย DNF**
+
+```bash
+sudo dnf group install -y "Development Tools"
+sudo dnf group info "Development Tools" | sudo tee /var/tmp/systemtools.out > /dev/null
+cat /var/tmp/systemtools.out
+
+```
+
+---
+
+**โจทย์ข้อที่ 19: การล็อกบัญชีผู้ใช้และค้นหาด้วย Regular Expression**
+
+```bash
+sudo usermod -L user70
+sudo grep -E '^user70:!' /etc/shadow | sudo tee /var/tmp/user70.lock > /dev/null
+sudo passwd -S user70
+
+```
+
+---
+
+**โจทย์ข้อที่ 20: การใช้งาน Rootful Container ผ่าน systemd (Quadlet)**
+
+```bash
+sudo dnf install -y container-tools
+sudo mkdir -p /etc/containers/systemd
+sudo bash -c "cat > /etc/containers/systemd/myweb.container <<'EOF'
+[Unit]
+Description=Rootful Web Container
+
+[Container]
+ContainerName=myweb
+Image=registry.access.redhat.com/ubi10/ubi:latest
+Exec=sleep infinity
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF"
+
+sudo podman pull registry.access.redhat.com/ubi10/ubi:latest
+sudo systemctl daemon-reload
+sudo systemctl start myweb.service
+sudo podman ps
+
+```
+
+---
+
+**โจทย์ข้อที่ 21: การจัดการ Rootless Container และ Quadlet สำหรับ User**
+
+```bash
+# 1. รันในสิทธิ์ root
+sudo useradd user80
+echo "user80:redhat" | sudo chpasswd
+sudo mkdir -p /data01
+sudo chown user80:user80 /data01
+sudo loginctl enable-linger user80
+
+# 2. สลับเป็น user80
+su - user80
+mkdir -p ~/.config/containers/systemd
+cat > ~/.config/containers/systemd/c80.container <<'EOF'
+[Unit]
+Description=User80 Rootless Container
+
+[Container]
+ContainerName=c80
+Image=registry.access.redhat.com/ubi9/ubi:latest
+Exec=sleep infinity
+Volume=/data01:/data01:Z
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable --now c80.service
+touch /data01/testfile_from_host
+podman exec c80 ls -l /data01
+
+```
